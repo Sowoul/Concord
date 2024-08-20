@@ -124,6 +124,7 @@
       <div class="me-3">
         Room: <span id="room-id"></span> | User: <span id="username"></span>
       </div>
+      <button class="btn btn-success w-10" onclick="logout(event)">Log out</button>
     </div>
     <div id="content-area">
       <div id="sidebar">
@@ -176,7 +177,10 @@
             .then((treeData) => buildFileTree(treeData))
             .catch((err) => console.error("Error fetching file tree:", err));
         });
-
+        function logout(event){
+          event.preventDefault();
+          window.location="/login"
+        }
       function buildFileTree(treeData) {
         const tree = document.getElementById("file-tree");
         tree.innerHTML = "";
