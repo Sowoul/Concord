@@ -188,9 +188,19 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+
     <script>
       const editor = ace.edit("editor");
+      ace.require("ace/ext/language_tools");
+      editor.setOptions({
+    enableBasicAutocompletion: true,
+    enableLiveAutocompletion: true,
+
+});
+
       editor.setTheme("ace/theme/monokai");
       editor.session.setMode("ace/mode/python");
 
