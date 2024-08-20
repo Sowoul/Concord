@@ -1,5 +1,12 @@
 import eventlet
-eventlet.monkey_patch(socket=True)
+eventlet.monkey_patch(
+    os=True,
+    select=True,
+    socket=True,
+    thread=True,
+    time=True
+)
+
 
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from flask_socketio import SocketIO, join_room, emit
