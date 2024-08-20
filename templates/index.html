@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Con-code</title>
+    <title>Collaborative IDE</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
@@ -32,6 +32,20 @@
         justify-content: space-between;
         align-items: center;
       }
+      #top-bar.btn-success:active{
+        background-color: #357abd;
+        border-color: #357abd;
+      }
+      #top-bar .btn-success.mt-3:hover {
+  background-color: #357abd;
+  border-color: #357abd;
+}
+
+#top-bar .btn-success.mt-3:active {
+  background-color: #153c7b;
+  border-color: #092770;
+}
+
       #bottom-bar {
         background-color: #333;
         border-top: 1px solid #444;
@@ -120,6 +134,20 @@
         border-color: #1e7e34 !important;
       }
 
+
+
+
+
+#sidebar .btn-success.mt-3:hover {
+  background-color: #357abd;
+  border-color: #357abd;
+}
+
+#sidebar .btn-success.mt-3:active {
+  background-color: #153c7b;
+  border-color: #092770;
+}
+
       .btn-success {
         background-color: #007acc;
         border-color: #007acc;
@@ -203,10 +231,16 @@
       const editor = ace.edit("editor");
       ace.require("ace/ext/language_tools");
       editor.setOptions({
-        enableBasicAutocompletion: true,
-        enableLiveAutocompletion: true,
-      });
-    
+            enableBasicAutocompletion: true,
+            enableLiveAutocompletion: true,
+            fontSize: 14,
+            showLineNumbers: true,
+            showGutter: true,
+            highlightActiveLine: true,
+            highlightSelectedWord: true, 
+            readOnly: false,
+        });
+
       editor.setTheme("ace/theme/monokai");
       editor.session.setMode("ace/mode/python");
     
@@ -275,62 +309,71 @@
         lastClicked = ""; 
       }
       function buildFileTree(treeData) {
-        const tree = document.getElementById("file-tree");
-        tree.innerHTML = "";
-    
-        treeData.forEach((folder) => {
-          const folderItem = document.createElement("div");
-          folderItem.classList.add("list-group-item", "folder-icon");
-          folderItem.textContent = folder.name;
-          folderItem.onclick = () => {
-            toggleFolder(folderItem);
+    const tree = document.getElementById("file-tree");
+    tree.innerHTML = "";
+
+    treeData.forEach((folder) => {
+        const folderItem = document.createElement("div");
+        folderItem.classList.add("list-group-item", "folder-icon");
+        folderItem.textContent = folder.name;
+        folderItem.onclick = () => {
+            if (folderItem.classList.contains('expanded')) {
+                toggleFolder(folderItem, false);
+            } else {
+                toggleFolder(folderItem, true);
+            }
             lastClicked = folder.name; 
-          };
-    
-          const subTree = document.createElement("div");
-          subTree.style.display = "none";
-          folderItem.appendChild(subTree);
-    
-          folder.subfolders.forEach((subfolder) => {
+        };
+
+        const subTree = document.createElement("div");
+        subTree.style.display = "none"; // Start with folders collapsed
+        folderItem.appendChild(subTree);
+
+        folder.subfolders.forEach((subfolder) => {
             const subfolderItem = document.createElement("div");
             subfolderItem.classList.add("list-group-item", "folder-icon", "ms-3");
             subfolderItem.textContent = subfolder.name;
             subfolderItem.onclick = () => {
-              toggleFolder(subfolderItem);
-              lastClicked = subfolder.name;
+                if (subfolderItem.classList.contains('expanded')) {
+                    toggleFolder(subfolderItem, false);
+                } else {
+                    toggleFolder(subfolderItem, true);
+                }
+                lastClicked = subfolder.name;
             };
-    
+
             const fileSubTree = document.createElement("div");
-            fileSubTree.style.display = "none";
+            fileSubTree.style.display = "none"; // Start with files collapsed
             subfolderItem.appendChild(fileSubTree);
-    
+
             subfolder.files.forEach((file) => {
-              const fileItem = document.createElement("div");
-              fileItem.classList.add("list-group-item", "file-icon", "ms-5");
-              fileItem.textContent = file.name;
-              fileItem.onclick = () => loadFile(folder.name, subfolder.name, file.name);
-              fileSubTree.appendChild(fileItem);
+                const fileItem = document.createElement("div");
+                fileItem.classList.add("list-group-item", "file-icon", "ms-5");
+                fileItem.textContent = file.name;
+                fileItem.onclick = () => loadFile(folder.name, subfolder.name, file.name);
+                fileSubTree.appendChild(fileItem);
             });
-    
+
             subTree.appendChild(subfolderItem);
-          });
-    
-          folder.files.forEach((file) => {
+        });
+
+        folder.files.forEach((file) => {
             const fileItem = document.createElement("div");
             fileItem.classList.add("list-group-item", "file-icon", "ms-3");
             fileItem.textContent = file.name;
             fileItem.onclick = () => loadFile(folder.name, "", file.name);
             subTree.appendChild(fileItem);
-          });
-    
-          tree.appendChild(folderItem);
         });
-      }
-    
-      function toggleFolder(folderItem) {
-        const subTree = folderItem.querySelector("div");
-        subTree.style.display = subTree.style.display === "none" ? "block" : "none";
-      }
+
+        tree.appendChild(folderItem);
+    });
+}
+
+function toggleFolder(folderItem, expand) {
+    const subTree = folderItem.querySelector("div");
+    subTree.style.display = expand ? "block" : "none";
+    folderItem.classList.toggle('expanded', expand);
+}
     
       function loadFile(folderName, subfolderName, fileName) {
         currentFolder = folderName;
