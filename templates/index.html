@@ -37,8 +37,20 @@
         border-top: 1px solid #444;
         padding: 10px;
         display: flex;
+        align-items: center;
         justify-content: space-between;
         color: #d4d4d4;
+      }
+
+      #bottom-bar label {
+        margin-right: 10px;
+        white-space: nowrap;
+      }
+
+      #language-select {
+        width: 10%;
+        min-width: 50px;
+        margin-right: 20px;
       }
       #content-area {
         display: flex;
@@ -98,6 +110,15 @@
       .list-group-item:hover {
         background-color: #373737;
       }
+      .btn-success-indication {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+      }
+      .btn-success-indication:hover {
+        background-color: #218838 !important;
+        border-color: #1e7e34 !important;
+      }
+
       .btn-success {
         background-color: #007acc;
         border-color: #007acc;
@@ -140,7 +161,7 @@
       <div id="main-content">
         <div id="current-file">No file selected</div>
         <div id="editor">Select a file to start editing...</div>
-        <button class="btn btn-primary mt-3" onclick="saveFile()">Save</button>
+        <button class="btn btn-primary mt-3" onclick="saveFile()" id="save">Save</button>
       </div>
       <div id="right-panel">
         <h5>Contributors</h5>
@@ -149,8 +170,21 @@
       </div>
     </div>
     <div id="bottom-bar">
-      <div>Status: Ready</div>
-      <div><a href="https://www.github.com/sowoul" style="color:greenyellow">By Ojaswa Sharma</a></div>
+      <label for="language-select">Language:</label>
+      <select id="language-select" class="form-select" aria-label="Language select">
+        <option value="python" selected>Python</option>
+        <option value="java">Java</option>
+        <option value="javascript">JavaScript</option>
+        <option value="html">HTML</option>
+        <option value="c_cpp">C++</option>
+        <option value="c">C</option>
+        <option value="csharp">C#</option>
+        <option value="go">Go</option>
+        <option value="lua">Lua</option>
+      </select>
+      <div>
+        <a href="https://www.github.com/sowoul" style="color:greenyellow">By Ojaswa Sharma</a>
+      </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
@@ -160,27 +194,63 @@
       editor.setTheme("ace/theme/monokai");
       editor.session.setMode("ace/mode/python");
 
+      document.getElementById("language-select").addEventListener("change", function() {
+        const selectedLanguage = this.value;
+        switch (selectedLanguage) {
+          case "python":
+            editor.session.setMode("ace/mode/python");
+            break;
+          case "java":
+            editor.session.setMode("ace/mode/java");
+            break;
+          case "javascript":
+            editor.session.setMode("ace/mode/javascript");
+            break;
+          case "html":
+            editor.session.setMode("ace/mode/html");
+            break;
+          case "c_cpp":
+            editor.session.setMode("ace/mode/c_cpp");
+            break;
+          case "c":
+            editor.session.setMode("ace/mode/c_cpp");
+            break;
+          case "csharp":
+            editor.session.setMode("ace/mode/csharp");
+            break;
+          case "go":
+            editor.session.setMode("ace/mode/go");
+            break;
+          case "lua":
+            editor.session.setMode("ace/mode/lua");
+            break;
+          default:
+            editor.session.setMode("ace/mode/text");
+            break;
+        }
+      });
+
       const socket = io.connect();
       let currentFolder = "";
       let currentFile = "";
 
-      // Fetch room info and display it
       fetch("/getinfo")
         .then((response) => response.json())
         .then((data) => {
           document.getElementById("room-id").textContent = data.room;
           document.getElementById("username").textContent = data.username;
 
-          // Fetch and display the file tree
           fetch(`/get_file_tree?room=${data.room}`)
             .then((response) => response.json())
             .then((treeData) => buildFileTree(treeData))
             .catch((err) => console.error("Error fetching file tree:", err));
         });
-        function logout(event){
-          event.preventDefault();
-          window.location="/login"
-        }
+
+      function logout(event) {
+        event.preventDefault();
+        window.location = "/login";
+      }
+
       function buildFileTree(treeData) {
         const tree = document.getElementById("file-tree");
         tree.innerHTML = "";
@@ -197,11 +267,7 @@
 
           folder.subfolders.forEach((subfolder) => {
             const subfolderItem = document.createElement("div");
-            subfolderItem.classList.add(
-              "list-group-item",
-              "folder-icon",
-              "ms-3",
-            );
+            subfolderItem.classList.add("list-group-item", "folder-icon", "ms-3");
             subfolderItem.textContent = subfolder.name;
             subfolderItem.onclick = () => toggleFolder(subfolderItem);
 
@@ -213,8 +279,7 @@
               const fileItem = document.createElement("div");
               fileItem.classList.add("list-group-item", "file-icon", "ms-5");
               fileItem.textContent = file.name;
-              fileItem.onclick = () =>
-                loadFile(folder.name, subfolder.name, file.name);
+              fileItem.onclick = () => loadFile(folder.name, subfolder.name, file.name);
               fileSubTree.appendChild(fileItem);
             });
 
@@ -235,18 +300,13 @@
 
       function toggleFolder(folderItem) {
         const subTree = folderItem.querySelector("div");
-        subTree.style.display =
-          subTree.style.display === "none" ? "block" : "none";
+        subTree.style.display = subTree.style.display === "none" ? "block" : "none";
       }
 
       function loadFile(folderName, subfolderName, fileName) {
         currentFolder = folderName;
         currentFile = fileName;
-
-        // Display the current file name at the top
-        document.getElementById("current-file").textContent =
-          `${folderName}/${subfolderName}/${fileName}`;
-
+        document.getElementById("current-file").textContent = `${folderName}/${subfolderName}/${fileName}`;
         socket.emit("load_file", {
           folder_name: folderName,
           subfolder_name: subfolderName,
@@ -265,6 +325,14 @@
           file_name: currentFile,
           content,
         });
+
+        const saveButton = document.getElementById("save");
+        saveButton.classList.add("btn-success-indication");
+        saveButton.textContent="Saved!!"
+        setTimeout(() => {
+          saveButton.classList.remove("btn-success-indication");
+          saveButton.textContent="Save"
+        }, 2000);
       }
 
       function createNewFolder() {
@@ -284,41 +352,29 @@
         }
       }
 
-      socket.on("folder_created", (data) => {
-        fetch(
-          `/get_file_tree?room=${document.getElementById("room-id").textContent}`,
-        )
+      socket.on("folder_created", () => {
+        fetch(`/get_file_tree?room=${document.getElementById("room-id").textContent}`)
           .then((response) => response.json())
           .then((treeData) => buildFileTree(treeData))
-          .catch((err) =>
-            console.error(
-              "Error updating file tree after folder creation:",
-              err,
-            ),
-          );
+          .catch((err) => console.error("Error updating file tree after folder creation:", err));
       });
 
-      socket.on("file_created", (data) => {
-        fetch(
-          `/get_file_tree?room=${document.getElementById("room-id").textContent}`,
-        )
+      socket.on("file_created", () => {
+        fetch(`/get_file_tree?room=${document.getElementById("room-id").textContent}`)
           .then((response) => response.json())
           .then((treeData) => buildFileTree(treeData))
-          .catch((err) =>
-            console.error("Error updating file tree after file creation:", err),
-          );
+          .catch((err) => console.error("Error updating file tree after file creation:", err));
       });
-      socket.on('newjoin', function(data){
+
+      socket.on('newjoin', (data) => {
         console.log(data);
-        const field = document.getElementById("grp")
-        var temp = ""
+        const field = document.getElementById("grp");
+        var temp = "";
         data.forEach(function(val){
-          temp+=`<a href="#" class="list-group-item list-group-item-action">` + val + `</a>`
-        })
-        field.innerHTML=temp
-
-
-      })
+          temp += `<a class="list-group-item list-group-item-action">` + val + `</a>`;
+        });
+        field.innerHTML = temp;
+      });
     </script>
   </body>
 </html>
