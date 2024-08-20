@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      scale:1.1;
+      flex-direction: row;
+    }
+    .image-container {
+      width: 50%;
+      background: url('https://i.postimg.cc/sxRf8hxH/Untitled.png') no-repeat center center;
+      background-size: cover;
+      filter: brightness(0.7);
+    }
+    .container {
+      background-color: #1e1e1e;
+      color: #dcdcdc;
+      padding: 40px;
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      margin: 0 0 30px;
+      font-size: 2.5em;
+      color: #4caf50;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    }
+    .error {
+      color: #f44747;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+    input {
+      width: 300px;
+      max-width: 900px; /* Adjusted maximum width */
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #3c3c3c;
+      border-radius: 6px;
+      background-color: #2d2d2d;
+      color: #dcdcdc;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 12px;
+      width: 300px;
+      border: none;
+      border-radius: 6px;
+      background-color: #007acc;
+      color: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      transition: background-color 0.3s, transform 0.3s;
+      margin-right:8px;
+    }
+    button:hover {
+      background-color: #005c99;
+      transform: scale(1.05);
+    }
+    .signup-btn {
+      background-color: #4caf50;
+    }
+    .signup-btn:hover {
+      background-color: #388e3c;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top:10px;
+      width: 300px;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+  <div class="image-container"></div>
+  <div class="container">
+    <h1>Login</h1>
+    <div class="error">{{error}}</div>
+    <form method="POST" autocomplete="off">
+      <div>
+        <input name="username" placeholder="Enter your username" />
+      </div>
+      <div>
+        <input name="password" type="password" placeholder="Enter your password" />
+      </div>
+      <div>
+        <input name="room" placeholder="Enter your room ID if any" />
+      </div>
+      <div class="button-group">
+        <button type="submit">Login</button>
+        <button type="button" class="signup-btn" onclick="signup(event)">Sign Up</button>
+      </div>
+    </form>
+  </div>
+  <script>
+    function signup(event) {
+      event.preventDefault();
+      window.location = "/signup";
+    }
+  </script>
+</body>
+</html>

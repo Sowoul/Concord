@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign Up</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+    }
+    .container {
+      background-color: #1e1e1e;
+      color: #dcdcdc;
+      padding: 30px;
+      width: 40%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      scale:1.1;
+      align-items: center;
+
+    }
+    h1 {
+      margin: 0 0 5px;
+      font-size: 3em;
+      color: #007acc;
+    }
+    .error {
+      color: #f44747;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #3c3c3c;
+      border-radius: 6px;
+      background-color: #2d2d2d;
+      color: #dcdcdc;
+    }
+    button {
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      background-color: #007acc;
+      color: #ffffff;
+      cursor: pointer;
+      margin-top: 5px;
+      margin-left:6.5%;
+      width: 100%;
+      transition: background-color 0.3s, transform 0.3s;
+
+
+    }
+    button:hover {
+      background-color: #005c99;
+      transform: scale(1.05);
+    }
+    .image-container {
+      width: 60%;
+      background: url('https://i.postimg.cc/sxRf8hxH/Untitled.png') no-repeat center center;
+      background-size: cover;
+      border-left: 5px solid #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sign Up</h1>
+    <div class="error">{{error}}</div>
+    <form method="POST" autocomplete="off">
+      <div>
+        <input name="username" placeholder="Choose a unique username" />
+      </div>
+      <div>
+        <input name="password" type="password" placeholder="Choose a password" />
+      </div>
+      <button type="submit">Sign Up</button>
+    </form>
+  </div>
+  <div class="image-container"></div>
+</body>
+</html>

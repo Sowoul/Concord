@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Collaborative IDE</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <style>
+      body {
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      #top-bar {
+        background-color: #333;
+        padding: 10px;
+        border-bottom: 1px solid #444;
+        color: #d4d4d4;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #bottom-bar {
+        background-color: #333;
+        border-top: 1px solid #444;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        color: #d4d4d4;
+      }
+      #content-area {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      #sidebar {
+        width: 250px;
+        background-color: #252526;
+        border-right: 1px solid #333;
+        padding: 10px;
+        overflow-y: auto;
+      }
+      #main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        overflow: hidden;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+      }
+      #current-file {
+        font-weight: bold;
+        margin-bottom: 10px;
+        font-size: 1.2em;
+        color: #9cdcfe;
+      }
+      #editor {
+        flex: 1;
+        border: 1px solid #333;
+      }
+      #right-panel {
+        width: 300px;
+        background-color: #252526;
+        border-left: 1px solid #333;
+        padding: 10px;
+        overflow-y: auto;
+      }
+      .folder-icon::before {
+        content: "\f07b";
+        font-family: "Font Awesome 6 Free";
+        margin-right: 8px;
+        color: #9cdcfe;
+      }
+      .file-icon::before {
+        content: "\f15b";
+        font-family: "Font Awesome 6 Free";
+        margin-right: 8px;
+        color: #d4d4d4;
+      }
+      .list-group-item {
+        background-color: #252526;
+        border: none;
+        color: #d4d4d4;
+      }
+      .list-group-item:hover {
+        background-color: #373737;
+      }
+      .btn-success {
+        background-color: #007acc;
+        border-color: #007acc;
+      }
+      .btn-success:hover {
+        background-color: #006bb3;
+        border-color: #006bb3;
+      }
+      .btn-primary {
+        background-color: #007acc;
+        border-color: #007acc;
+      }
+      .btn-primary:hover {
+        background-color: #006bb3;
+        border-color: #006bb3;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="top-bar">
+      <div class="ms-3">
+        <i class="fab fa-windows"></i> <strong>Collaborative IDE</strong>
+      </div>
+      <div class="me-3">
+        Room: <span id="room-id"></span> | User: <span id="username"></span>
+      </div>
+    </div>
+    <div id="content-area">
+      <div id="sidebar">
+        <h5>EXPLORER</h5>
+        <div id="file-tree" class="list-group"></div>
+        <button class="btn btn-success mt-3 w-100" onclick="createNewFolder()">
+          <i class="fas fa-folder-plus"></i> New Folder
+        </button>
+        <button class="btn btn-success mt-3 w-100" onclick="createNewFile()">
+          <i class="fas fa-file-code"></i> New File
+        </button>
+      </div>
+      <div id="main-content">
+        <div id="current-file">No file selected</div>
+        <div id="editor">Select a file to start editing...</div>
+        <button class="btn btn-primary mt-3" onclick="saveFile()">Save</button>
+      </div>
+      <div id="right-panel">
+        <h5>Contributors</h5>
+        <div class="list-group", id="grp">
+        </div>
+      </div>
+    </div>
+    <div id="bottom-bar">
+      <div>Status: Ready</div>
+      <div><a href="https://www.github.com/sowoul" style="color:greenyellow">By Ojaswa Sharma</a></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+      const editor = ace.edit("editor");
+      editor.setTheme("ace/theme/monokai");
+      editor.session.setMode("ace/mode/python");
+
+      const socket = io.connect();
+      let currentFolder = "";
+      let currentFile = "";
+
+      // Fetch room info and display it
+      fetch("/getinfo")
+        .then((response) => response.json())
+        .then((data) => {
+          document.getElementById("room-id").textContent = data.room;
+          document.getElementById("username").textContent = data.username;
+
+          // Fetch and display the file tree
+          fetch(`/get_file_tree?room=${data.room}`)
+            .then((response) => response.json())
+            .then((treeData) => buildFileTree(treeData))
+            .catch((err) => console.error("Error fetching file tree:", err));
+        });
+
+      function buildFileTree(treeData) {
+        const tree = document.getElementById("file-tree");
+        tree.innerHTML = "";
+
+        treeData.forEach((folder) => {
+          const folderItem = document.createElement("div");
+          folderItem.classList.add("list-group-item", "folder-icon");
+          folderItem.textContent = folder.name;
+          folderItem.onclick = () => toggleFolder(folderItem);
+
+          const subTree = document.createElement("div");
+          subTree.style.display = "none";
+          folderItem.appendChild(subTree);
+
+          folder.subfolders.forEach((subfolder) => {
+            const subfolderItem = document.createElement("div");
+            subfolderItem.classList.add(
+              "list-group-item",
+              "folder-icon",
+              "ms-3",
+            );
+            subfolderItem.textContent = subfolder.name;
+            subfolderItem.onclick = () => toggleFolder(subfolderItem);
+
+            const fileSubTree = document.createElement("div");
+            fileSubTree.style.display = "none";
+            subfolderItem.appendChild(fileSubTree);
+
+            subfolder.files.forEach((file) => {
+              const fileItem = document.createElement("div");
+              fileItem.classList.add("list-group-item", "file-icon", "ms-5");
+              fileItem.textContent = file.name;
+              fileItem.onclick = () =>
+                loadFile(folder.name, subfolder.name, file.name);
+              fileSubTree.appendChild(fileItem);
+            });
+
+            subTree.appendChild(subfolderItem);
+          });
+
+          folder.files.forEach((file) => {
+            const fileItem = document.createElement("div");
+            fileItem.classList.add("list-group-item", "file-icon", "ms-3");
+            fileItem.textContent = file.name;
+            fileItem.onclick = () => loadFile(folder.name, "", file.name);
+            subTree.appendChild(fileItem);
+          });
+
+          tree.appendChild(folderItem);
+        });
+      }
+
+      function toggleFolder(folderItem) {
+        const subTree = folderItem.querySelector("div");
+        subTree.style.display =
+          subTree.style.display === "none" ? "block" : "none";
+      }
+
+      function loadFile(folderName, subfolderName, fileName) {
+        currentFolder = folderName;
+        currentFile = fileName;
+
+        // Display the current file name at the top
+        document.getElementById("current-file").textContent =
+          `${folderName}/${subfolderName}/${fileName}`;
+
+        socket.emit("load_file", {
+          folder_name: folderName,
+          subfolder_name: subfolderName,
+          file_name: fileName,
+        });
+      }
+
+      socket.on("file_loaded", (data) => {
+        editor.setValue(data.content);
+      });
+
+      function saveFile() {
+        const content = editor.getValue();
+        socket.emit("file_update", {
+          folder_name: currentFolder,
+          file_name: currentFile,
+          content,
+        });
+      }
+
+      function createNewFolder() {
+        const folderName = prompt("Enter new folder name:");
+        if (folderName) {
+          socket.emit("create_folder", { folder_name: folderName });
+        }
+      }
+
+      function createNewFile() {
+        const fileName = prompt("Enter new file name:");
+        if (fileName) {
+          socket.emit("create_file", {
+            file_name: fileName,
+            folder_name: currentFolder,
+          });
+        }
+      }
+
+      socket.on("folder_created", (data) => {
+        fetch(
+          `/get_file_tree?room=${document.getElementById("room-id").textContent}`,
+        )
+          .then((response) => response.json())
+          .then((treeData) => buildFileTree(treeData))
+          .catch((err) =>
+            console.error(
+              "Error updating file tree after folder creation:",
+              err,
+            ),
+          );
+      });
+
+      socket.on("file_created", (data) => {
+        fetch(
+          `/get_file_tree?room=${document.getElementById("room-id").textContent}`,
+        )
+          .then((response) => response.json())
+          .then((treeData) => buildFileTree(treeData))
+          .catch((err) =>
+            console.error("Error updating file tree after file creation:", err),
+          );
+      });
+      socket.on('newjoin', function(data){
+        console.log(data);
+        const field = document.getElementById("grp")
+        var temp = ""
+        data.forEach(function(val){
+          temp+=`<a href="#" class="list-group-item list-group-item-action">` + val + `</a>`
+        })
+        field.innerHTML=temp
+
+
+      })
+    </script>
+  </body>
+</html>
