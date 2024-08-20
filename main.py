@@ -1,19 +1,10 @@
-import eventlet
-eventlet.monkey_patch(
-    os=True,
-    select=True,
-    socket=True,
-    thread=True,
-    time=True
-)
-
-
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from flask_socketio import SocketIO, join_room, emit
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from string import ascii_uppercase
 from random import choice
+import eventlet
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.sqlite3"
@@ -228,16 +219,22 @@ def load_file(data):
 def create_folder(data):
     room_id = session.get("room", "")
     folder_name = data.get("folder_name", "")
+    parent_folder_id = data.get("parent_folder_id", "")
+    if parent_folder_id == "":
+        existing_folder = Folder.query.filter_by(room_id=room_id, name=folder_name).first()
+        if not existing_folder:
+            new_folder = Folder(name=folder_name, room_id=room_id)
+            db.session.add(new_folder)
+            db.session.commit()
 
-    existing_folder = Folder.query.filter_by(
-        room_id=room_id, name=folder_name, parent_folder_id=None
-    ).first()
-    if not existing_folder:
-        new_folder = Folder(name=folder_name, room_id=room_id)
-        db.session.add(new_folder)
-        db.session.commit()
+    else:
+        existing_folder = Folder.query.filter_by(room_id=room_id, name=folder_name, parent_folder_id=parent_folder_id).first()
+        if not existing_folder:
+            new_folder = Folder(name=folder_name, room_id=room_id, parent_folder_id=parent_folder_id)
+            db.session.add(new_folder)
+            db.session.commit()
 
-    emit("folder_created", {"folder_name": folder_name}, to=room_id)
+    emit("folder_created", {"folder_name": folder_name, "parent_folder_id": parent_folder_id}, to=room_id)
 
 
 @socket.on("create_file")
@@ -245,12 +242,13 @@ def create_file(data):
     room_id = session.get("room", "")
     folder_name = data.get("folder_name", "")
     file_name = data.get("file_name", "")
+    parent_folder_id = data.get("parent_folder_id", None)
 
     folder = Folder.query.filter_by(
-        room_id=room_id, name=folder_name, parent_folder_id=None
+        room_id=room_id, name=folder_name, parent_folder_id=parent_folder_id
     ).first()
     if not folder:
-        folder = Folder(name=folder_name, room_id=room_id)
+        folder = Folder(name=folder_name, room_id=room_id, parent_folder_id=parent_folder_id)
         db.session.add(folder)
         db.session.commit()
 
@@ -260,10 +258,9 @@ def create_file(data):
         db.session.add(new_file)
         db.session.commit()
 
-    emit("file_created", {"file_name": file_name}, to=room_id)
-
+    emit("file_created", {"file_name": file_name, "parent_folder_id": parent_folder_id}, to=room_id)
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    socket.run(app=app, host='0.0.0.0', port=8000, debug=True)
+    socket.run(app=app, host='0.0.0.0', port=8080, debug=True)
