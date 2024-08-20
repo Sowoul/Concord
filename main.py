@@ -152,6 +152,8 @@ def code():
     room = session.get("room", "")
     if username == "" or room == "":
         return redirect(url_for("login"))
+    if db.session.query(User.name).filter_by(name=username).first() is None:
+        return redirect(url_for('login'))
     return render_template("index.html")
 
 
