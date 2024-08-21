@@ -1,3 +1,11 @@
+import eventlet
+eventlet.monkey_patch(
+    os=True,
+    select=True,
+    socket=True,
+    thread=True,
+    time=True
+)
 
 
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
@@ -6,7 +14,6 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from string import ascii_uppercase
 from random import choice
-import eventlet
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.sqlite3"
