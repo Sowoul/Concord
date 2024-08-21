@@ -1,11 +1,4 @@
-import eventlet
-eventlet.monkey_patch(
-    os=True,
-    select=True,
-    socket=True,
-    thread=True,
-    time=True
-)
+
 
 from flask import Flask, render_template, redirect, url_for, request, session, jsonify
 from flask_socketio import SocketIO, join_room, emit
@@ -13,7 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from string import ascii_uppercase
 from random import choice
-
+import eventlet
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.sqlite3"
@@ -152,24 +145,37 @@ def code():
     room = session.get("room", "")
     if username == "" or room == "":
         return redirect(url_for("login"))
-    if db.session.query(User.name).filter_by(name=username).first() is None:
-        return redirect(url_for('login'))
     return render_template("index.html")
 
 
 @app.route("/get_file_tree", methods=["GET"])
 def get_file_tree():
     room_id = request.args.get("room")
-    folders = Folder.query.filter_by(room_id=room_id, parent_folder_id=None).all()
+    folders = Folder.query.filter_by(room_id=room_id).all()
+    names_dict = {folder.name: folder for folder in folders}
 
-    def build_tree(folder):
-        return {
-            "name": folder.name,
-            "subfolders": [build_tree(subfolder) for subfolder in folder.subfolders],
+    def build_tree(foldername):
+        if not foldername or foldername not in names_dict:
+            return None
+        
+        folder = names_dict[foldername]
+        temp = {
+            "name": foldername,
             "files": [{"name": file.name} for file in folder.files],
+            "folders": []
         }
+        
+        for child in folders:
+            if child.parent_folder_id == foldername:
+                child_tree = build_tree(child.name)
+                if child_tree:
+                    temp["folders"].append(child_tree)
+                folders.remove(child)
+        return temp
 
-    tree_data = [build_tree(folder) for folder in folders]
+    root_folders = [folder for folder in folders if folder.parent_folder_id is None]
+    tree_data = [build_tree(folder.name) for folder in root_folders]
+
     return jsonify(tree_data)
 
 
@@ -186,15 +192,32 @@ def connected():
 def handle_file_update(data):
     room_id = session.get("room", "")
     folder_name = data.get("folder_name", "")
+    subfolder_name = data.get("subfolder_name", "")
     file_name = data.get("file_name", "")
     new_content = data.get("content", "")
 
-    folder = Folder.query.filter_by(room_id=room_id, name=folder_name).first()
-    if not folder:
-        folder = Folder(name=folder_name, room_id=room_id)
-        db.session.add(folder)
-        db.session.commit()
+    def find_or_create_folder(name, parent_id):
+        folder = Folder.query.filter_by(room_id=room_id, name=name, parent_folder_id=parent_id).first()
+        if not folder:
+            folder = Folder(name=name, room_id=room_id, parent_folder_id=parent_id)
+            db.session.add(folder)
+            db.session.commit()
+        return folder
 
+    
+    folder = Folder.query.filter_by(room_id=room_id, name=folder_name, parent_folder_id=None).first()
+
+    if folder:
+        if subfolder_name:
+            
+            folder = find_or_create_folder(subfolder_name, folder.id)
+    else:
+        
+        folder = find_or_create_folder(folder_name, None)
+        if subfolder_name:
+            folder = find_or_create_folder(subfolder_name, folder.id)
+
+    
     file = File.query.filter_by(folder_id=folder.id, name=file_name).first()
     if not file:
         file = File(name=file_name, content=new_content, folder_id=folder.id)
@@ -205,20 +228,26 @@ def handle_file_update(data):
     db.session.commit()
     emit("file_update", data, to=room_id)
 
-
 @socket.on("load_file")
 def load_file(data):
     room_id = session.get("room", "")
     folder_name = data.get("folder_name", "")
     subfolder_name = data.get("subfolder_name", "")
     file_name = data.get("file_name", "")
+    folder = Folder.query.filter_by(room_id=room_id, name=folder_name, parent_folder_id=None).first()
 
-    folder = Folder.query.filter_by(room_id=room_id, name=folder_name).first()
-    if subfolder_name:
-        folder = Folder.query.filter_by(
-            room_id=room_id, name=subfolder_name, parent_folder_id=folder.id
-        ).first()
-    file = File.query.filter_by(folder_id=folder.id, name=file_name).first()
+    if folder:
+        if subfolder_name:
+            folder = Folder.query.filter_by(
+                room_id=room_id, name=subfolder_name, parent_folder_id=folder.id
+            ).first()
+        
+        if folder:
+            file = File.query.filter_by(folder_id=folder.id, name=file_name).first()
+        else:
+            file = None
+    else:
+        file = None
 
     if file:
         emit("file_loaded", {"content": file.content})
@@ -230,34 +259,32 @@ def load_file(data):
 def create_folder(data):
     room_id = session.get("room", "")
     folder_name = data.get("folder_name", "")
-    parent_folder_id = data.get("parent_folder_id", "")
-    if parent_folder_id == "":
-        existing_folder = Folder.query.filter_by(room_id=room_id, name=folder_name).first()
-        if not existing_folder:
-            new_folder = Folder(name=folder_name, room_id=room_id)
-            db.session.add(new_folder)
-            db.session.commit()
-
+    parent_folder_id = data.get("parent_folder_id", None)
+    if parent_folder_id is None:
+        existing_folder = Folder.query.filter_by(room_id=room_id, name=folder_name, parent_folder_id='~').first()
     else:
         existing_folder = Folder.query.filter_by(room_id=room_id, name=folder_name, parent_folder_id=parent_folder_id).first()
-        if not existing_folder:
-            new_folder = Folder(name=folder_name, room_id=room_id, parent_folder_id=parent_folder_id)
-            db.session.add(new_folder)
-            db.session.commit()
-
-    emit("folder_created", {"folder_name": folder_name, "parent_folder_id": parent_folder_id}, to=room_id)
-
+    if not Folder.query.filter_by(room_id=room_id, name=parent_folder_id):
+        new_parent=Folder(name=parent_folder_id, room_id=room_id, parent_folder_id=None)
+        db.session.add(new_parent)
+        db.session.commit()
+    if not existing_folder:
+        new_folder = Folder(name=folder_name, room_id=room_id, parent_folder_id=parent_folder_id)
+        db.session.add(new_folder)
+        db.session.commit()
+        emit("folder_created", {"folder_name": folder_name, "parent_folder_id": parent_folder_id}, to=room_id)
 
 @socket.on("create_file")
 def create_file(data):
     room_id = session.get("room", "")
-    folder_name = data.get("folder_name", "")
     file_name = data.get("file_name", "")
     parent_folder_id = data.get("parent_folder_id", None)
+    folder_name = data.get("folder_name", "")
 
     folder = Folder.query.filter_by(
         room_id=room_id, name=folder_name, parent_folder_id=parent_folder_id
     ).first()
+
     if not folder:
         folder = Folder(name=folder_name, room_id=room_id, parent_folder_id=parent_folder_id)
         db.session.add(folder)
@@ -268,10 +295,9 @@ def create_file(data):
         new_file = File(name=file_name, content="", folder_id=folder.id)
         db.session.add(new_file)
         db.session.commit()
-
-    emit("file_created", {"file_name": file_name, "parent_folder_id": parent_folder_id}, to=room_id)
+        emit("file_created", {"file_name": file_name, "parent_folder_id": parent_folder_id}, to=room_id)
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    socket.run(app=app, host='0.0.0.0', port=8080, debug=True)
+    socket.run(app=app, port=8080, debug=True)
