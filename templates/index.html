@@ -228,224 +228,242 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/loader.js"></script>
 
     <script>
-window.require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' } });
+      window.require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' } });
+      window.require(['vs/editor/editor.main'], function() {
+          const editor = monaco.editor.create(document.getElementById('editor'), {
+              value: 'Select a file to start editing...',
+              language: 'python',
+              theme: 'vs-dark',
+              fontSize: 14
+          });
 
-window.require(['vs/editor/editor.main'], function() {
-    const editor = monaco.editor.create(document.getElementById('editor'), {
-        value: 'Select a file to start editing...',
-        language: 'python',
-        theme: 'vs-dark',
-        fontSize: 14
-    });
+          document.getElementById('language-select').addEventListener('change', function() {
+              const selectedLanguage = this.value;
+              switch (selectedLanguage) {
+                  case 'python':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'python');
+                      break;
+                  case 'java':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'java');
+                      break;
+                  case 'javascript':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'javascript');
+                      break;
+                  case 'html':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'html');
+                      break;
+                  case 'cpp':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'cpp');
+                      break;
+                  case 'csharp':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'csharp');
+                      break;
+                  case 'go':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'go');
+                      break;
+                  case 'lua':
+                      monaco.editor.setModelLanguage(editor.getModel(), 'lua');
+                      break;
+                  default:
+                      monaco.editor.setModelLanguage(editor.getModel(), 'text');
+                      break;
+              }
+          });
 
-    document.getElementById('language-select').addEventListener('change', function() {
-        const selectedLanguage = this.value;
-        switch (selectedLanguage) {
-            case 'python':
-                monaco.editor.setModelLanguage(editor.getModel(), 'python');
-                break;
-            case 'java':
-                monaco.editor.setModelLanguage(editor.getModel(), 'java');
-                break;
-            case 'javascript':
-                monaco.editor.setModelLanguage(editor.getModel(), 'javascript');
-                break;
-            case 'html':
-                monaco.editor.setModelLanguage(editor.getModel(), 'html');
-                break;
-            case 'cpp':
-                monaco.editor.setModelLanguage(editor.getModel(), 'cpp');
-                break;
-            case 'csharp':
-                monaco.editor.setModelLanguage(editor.getModel(), 'csharp');
-                break;
-            case 'go':
-                monaco.editor.setModelLanguage(editor.getModel(), 'go');
-                break;
-            case 'lua':
-                monaco.editor.setModelLanguage(editor.getModel(), 'lua');
-                break;
-            default:
-                monaco.editor.setModelLanguage(editor.getModel(), 'text');
-                break;
-        }
-    });
+          const socket = io.connect();
+          let currentFolder = "";
+          let currentFile = "";
+          let lastClicked = "";
 
-    const socket = io.connect();
-    let currentFolder = "";
-    let currentFile = "";
-    let lastClicked = "";
+          fetch("/getinfo")
+              .then((response) => response.json())
+              .then((data) => {
+                  document.getElementById("room-id").textContent = data.room;
+                  document.getElementById("username").textContent = data.username;
 
-    fetch("/getinfo")
-        .then((response) => response.json())
-        .then((data) => {
-            document.getElementById("room-id").textContent = data.room;
-            document.getElementById("username").textContent = data.username;
+                  fetch(`/get_file_tree?room=${data.room}`)
+                      .then((response) => response.json())
+                      .then((treeData) => buildFileTree(treeData))
+                      .catch((err) => console.error("Error fetching file tree:", err));
+              });
 
-            fetch(`/get_file_tree?room=${data.room}`)
-                .then((response) => response.json())
-                .then((treeData) => buildFileTree(treeData))
-                .catch((err) => console.error("Error fetching file tree:", err));
-        });
+          document.getElementById('logout').addEventListener('click', logout);
+          document.getElementById('goback').addEventListener('click', goback);
+          document.getElementById('create-folder').addEventListener('click', createNewFolder);
+          document.getElementById('create-file').addEventListener('click', createNewFile);
+          document.getElementById('save').addEventListener('click', saveFile);
 
-    document.getElementById('logout').addEventListener('click', logout);
-    document.getElementById('goback').addEventListener('click', goback);
-    document.getElementById('create-folder').addEventListener('click', createNewFolder);
-    document.getElementById('create-file').addEventListener('click', createNewFile);
-    document.getElementById('save').addEventListener('click', saveFile);
+          function logout(event) {
+              event.preventDefault();
+              window.location = "/login";
+          }
 
-    function logout(event) {
-        event.preventDefault();
-        window.location = "/login";
-    }
+          function goback(event) {
+              event.preventDefault();
+              currentFolder = "";
+              currentFile = "";
+              lastClicked = "";
+          }
 
-    function goback(event) {
-        event.preventDefault();
-        currentFolder = "";
-        currentFile = "";
-        lastClicked = "";
-    }
+          function buildFileTree(treeData) {
+          const tree = document.getElementById("file-tree");
+          tree.innerHTML = "";
 
-    function buildFileTree(treeData) {
-        const tree = document.getElementById("file-tree");
-        tree.innerHTML = "";
+          treeData.forEach((folder) => {
+              const folderItem = document.createElement("div");
+              folderItem.classList.add("list-group-item", "folder-icon");
+              folderItem.textContent = folder.name;
 
-        treeData.forEach((folder) => {
-            const folderItem = document.createElement("div");
-            folderItem.classList.add("list-group-item", "folder-icon");
-            folderItem.textContent = folder.name;
-            folderItem.addEventListener('click', () => {
-                if (folderItem.classList.contains('expanded')) {
-                    toggleFolder(folderItem, false);
-                } else {
-                    toggleFolder(folderItem, true);
-                }
-                lastClicked = folder.name;
-            });
 
-            const subTree = document.createElement("div");
-            subTree.style.display = "none"; // Start with folders collapsed
-            folderItem.appendChild(subTree);
+              folderItem.addEventListener('click', () => {
+                  if (folderItem.classList.contains('expanded')) {
+                      toggleFolder(folderItem, false);
+                  } else {
+                      toggleFolder(folderItem, true);
+                  }
+                  lastClicked = folder.name;
+              });
 
-            folder.subfolders.forEach((subfolder) => {
-                const subfolderItem = document.createElement("div");
-                subfolderItem.classList.add("list-group-item", "folder-icon", "ms-3");
-                subfolderItem.textContent = subfolder.name;
-                subfolderItem.addEventListener('click', () => {
-                    if (subfolderItem.classList.contains('expanded')) {
-                        toggleFolder(subfolderItem, false);
-                    } else {
-                        toggleFolder(subfolderItem, true);
-                    }
-                    lastClicked = subfolder.name;
-                });
+              const subTree = document.createElement("div");
+              subTree.style.display = "none"; 
+              folderItem.appendChild(subTree);
 
-                const fileSubTree = document.createElement("div");
-                fileSubTree.style.display = "none"; // Start with files collapsed
-                subfolderItem.appendChild(fileSubTree);
+              folder.folders.forEach((subfolder) => {
+                  const subfolderItem = document.createElement("div");
+                  subfolderItem.classList.add("list-group-item", "folder-icon", "ms-3");
+                  subfolderItem.textContent = subfolder.name;
 
-                subfolder.files.forEach((file) => {
-                    const fileItem = document.createElement("div");
-                    fileItem.classList.add("list-group-item", "file-icon", "ms-5");
-                    fileItem.textContent = file.name;
-                    fileItem.addEventListener('click', () => loadFile(folder.name, subfolder.name, file.name));
-                    fileSubTree.appendChild(fileItem);
-                });
+                  subfolderItem.addEventListener('click', (event) => {
+                      event.stopPropagation(); 
+                      if (subfolderItem.classList.contains('expanded')) {
+                          toggleFolder(subfolderItem, false);
+                      } else {
+                          toggleFolder(subfolderItem, true);
+                      }
+                      lastClicked = subfolder.name;
+                  });
 
-                subTree.appendChild(subfolderItem);
-            });
+                  const fileSubTree = document.createElement("div");
+                  fileSubTree.style.display = "none"; 
+                  subfolderItem.appendChild(fileSubTree);
 
-            folder.files.forEach((file) => {
-                const fileItem = document.createElement("div");
-                fileItem.classList.add("list-group-item", "file-icon", "ms-3");
-                fileItem.textContent = file.name;
-                fileItem.addEventListener('click', () => loadFile(folder.name, "", file.name));
-                subTree.appendChild(fileItem);
-            });
+                  subfolder.files.forEach((file) => {
+                      const fileItem = document.createElement("div");
+                      fileItem.classList.add("list-group-item", "file-icon", "ms-5");
+                      fileItem.textContent = file.name;
 
-            tree.appendChild(folderItem);
-        });
-    }
 
-    function toggleFolder(folderItem, expand) {
-        const subTree = folderItem.querySelector("div");
-        subTree.style.display = expand ? "block" : "none";
-        folderItem.classList.toggle('expanded', expand);
-    }
+                      fileItem.addEventListener('click', () => loadFile(folder.name, subfolder.name, file.name));
+                      fileSubTree.appendChild(fileItem);
+                  });
 
-    function loadFile(folderName, subfolderName, fileName) {
-        currentFolder = folderName;
-        currentFile = fileName;
-        document.getElementById("current-file").textContent = `${folderName}/${fileName}`;
-        
-        socket.emit("load_file", {
-            folder_name: folderName,
-            subfolder_name: subfolderName,
-            file_name: fileName,
-        });
-    }
+                  subTree.appendChild(subfolderItem);
+              });
 
-    socket.on("file_loaded", (data) => {
-        editor.setValue(data.content);
-    });
+              folder.files.forEach((file) => {
+                  const fileItem = document.createElement("div");
+                  fileItem.classList.add("list-group-item", "file-icon", "ms-3");
+                  fileItem.textContent = file.name;
 
-    function saveFile() {
-        const content = editor.getValue();
-        socket.emit("file_update", {
-            folder_name: currentFolder,
-            file_name: currentFile,
-            content,
-        });
 
-        const saveButton = document.getElementById("save");
-        saveButton.classList.add("btn-success-indication");
-        saveButton.textContent = "Saved!!";
-        setTimeout(() => {
-            saveButton.classList.remove("btn-success-indication");
-            saveButton.textContent = "Save";
-        }, 2000);
-    }
+                  fileItem.addEventListener('click', () => loadFile(folder.name, "", file.name));
+                  subTree.appendChild(fileItem);
+              });
 
-    function createNewFolder() {
-        const folderName = prompt("Enter new folder name:");
-        if (folderName) {
-            socket.emit("create_folder", { folder_name: folderName, parent_folder_id: lastClicked || currentFolder });
-        }
-    }
+              tree.appendChild(folderItem);
+          });
+      }
 
-    function createNewFile() {
-        const fileName = prompt("Enter new file name:");
-        if (fileName) {
-            socket.emit("create_file", {
-                file_name: fileName,
-                folder_name: lastClicked || currentFolder,
-            });
-        }
-    }
+          function toggleFolder(folderItem, expand) {
+              const subTree = folderItem.querySelector("div");
+              subTree.style.display = expand ? "block" : "none";
+              folderItem.classList.toggle('expanded', expand);
+          }
 
-    socket.on("folder_created", () => {
-        fetch(`/get_file_tree?room=${document.getElementById("room-id").textContent}`)
-            .then((response) => response.json())
-            .then((treeData) => buildFileTree(treeData))
-            .catch((err) => console.error("Error updating file tree after folder creation:", err));
-    });
+          function loadFile(folderName, subfolderName, fileName) {
+              currentFolder = folderName;
+              currentFile = fileName;
+              document.getElementById("current-file").textContent = `${folderName}/${fileName}`;
+              
+              socket.emit("load_file", {
+                  folder_name: folderName,
+                  subfolder_name: subfolderName,
+                  file_name: fileName,
+              });
+          }
 
-    socket.on("file_created", () => {
-        fetch(`/get_file_tree?room=${document.getElementById("room-id").textContent}`)
-            .then((response) => response.json())
-            .then((treeData) => buildFileTree(treeData))
-            .catch((err) => console.error("Error updating file tree after file creation:", err));
-    });
+          socket.on("file_loaded", (data) => {
+              editor.setValue(data.content);
+          });
 
-    socket.on('newjoin', (data) => {
-        const field = document.getElementById("grp");
-        let temp = "";
-        data.forEach(function(val) {
-            temp += `<a class="list-group-item list-group-item-action">` + val + `</a>`;
-        });
-        field.innerHTML = temp;
-    });
-});
+          function saveFile() {
+              const content = editor.getValue();
+              socket.emit("file_update", {
+                  folder_name: currentFolder,
+                  file_name: currentFile,
+                  content,
+              });
+
+              const saveButton = document.getElementById("save");
+              saveButton.classList.add("btn-success-indication");
+              saveButton.textContent = "Saved!!";
+              setTimeout(() => {
+                  saveButton.classList.remove("btn-success-indication");
+                  saveButton.textContent = "Save";
+              }, 2000);
+          }
+
+          function createNewFolder() {
+          const folderName = prompt("Enter new folder name:");
+          if (lastClicked === "" || currentFolder===""){
+              lastClicked="~"
+              currentFolder="~"
+            }
+          if (folderName) {
+              socket.emit("create_folder", { 
+                  folder_name: folderName, 
+                  parent_folder_id: lastClicked || currentFolder 
+              });
+          }
+      }
+
+          function createNewFile() {
+            if (lastClicked === "" || currentFolder===""){
+              lastClicked="~"
+              currentFolder="~"
+            }
+              const fileName = prompt("Enter new file name:");
+              if (fileName) {
+                  socket.emit("create_file", {
+                      file_name: fileName,
+                      folder_name: lastClicked || currentFolder,
+                  });
+              }
+          }
+
+          socket.on("folder_created", () => {
+              fetch(`/get_file_tree?room=${document.getElementById("room-id").textContent}`)
+                  .then((response) => response.json())
+                  .then((treeData) => buildFileTree(treeData))
+                  .catch((err) => console.error("Error updating file tree after folder creation:", err));
+          });
+
+          socket.on("file_created", () => {
+              fetch(`/get_file_tree?room=${document.getElementById("room-id").textContent}`)
+                  .then((response) => response.json())
+                  .then((treeData) => buildFileTree(treeData))
+                  .catch((err) => console.error("Error updating file tree after file creation:", err));
+          });
+
+          socket.on('newjoin', (data) => {
+              const field = document.getElementById("grp");
+              let temp = "";
+              data.forEach(function(val) {
+                  temp += `<a class="list-group-item list-group-item-action">` + val + `</a>`;
+              });
+              field.innerHTML = temp;
+          });
+      });
     </script>
       </body>
 </html>
